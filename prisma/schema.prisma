@@ -1,0 +1,291 @@
+// Crowslot — modelagem do banco
+//
+// Regra de ouro do multi-tenancy: toda tabela de negócio carrega `organizationId`
+// e toda query passa por ele. Relações entre entidades de negócio usam chaves
+// estrangeiras compostas (id + organizationId), de modo que o próprio banco
+// impede que um registro de uma organização referencie dados de outra.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum Plan {
+  FREE
+  PRO
+}
+
+enum SubscriptionStatus {
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+  PAUSED
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  CANCELED
+  NO_SHOW
+}
+
+// ─────────────────────────────────────────────────────────────
+// Autenticação (modelos exigidos pelo Auth.js / @auth/prisma-adapter)
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  accounts            Account[]
+  sessions            Session[]
+  memberships         Membership[]
+  invitationsSent     Invitation[] @relation("InvitedBy")
+  auditLogs           AuditLog[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Tenancy
+// ─────────────────────────────────────────────────────────────
+
+model Organization {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  plan             Plan     @default(FREE)
+  timezone         String   @default("America/Sao_Paulo")
+  stripeCustomerId String?  @unique @map("stripe_customer_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  memberships  Membership[]
+  invitations  Invitation[]
+  subscription Subscription?
+  clients      Client[]
+  services     Service[]
+  appointments Appointment[]
+  auditLogs    AuditLog[]
+
+  @@map("organizations")
+}
+
+model Membership {
+  id             String   @id @default(cuid())
+  userId         String   @map("user_id")
+  organizationId String   @map("organization_id")
+  role           Role     @default(MEMBER)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@unique([userId, organizationId])
+  // Alvo das FKs compostas: garante que o profissional pertence à mesma organização.
+  @@unique([id, organizationId])
+  @@index([organizationId])
+  @@map("memberships")
+}
+
+model Invitation {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  email          String
+  role           Role      @default(MEMBER)
+  // Guardamos apenas o hash SHA-256 do token; o token em texto vai só no e-mail.
+  tokenHash      String    @unique @map("token_hash")
+  invitedById    String    @map("invited_by_id")
+  expiresAt      DateTime  @map("expires_at")
+  acceptedAt     DateTime? @map("accepted_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, email])
+  @@map("invitations")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Cobrança (Stripe)
+// ─────────────────────────────────────────────────────────────
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  organizationId       String             @unique @map("organization_id")
+  stripeSubscriptionId String             @unique @map("stripe_subscription_id")
+  stripePriceId        String             @map("stripe_price_id")
+  status               SubscriptionStatus
+  currentPeriodEnd     DateTime           @map("current_period_end")
+  cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+// Registro de eventos de webhook já processados — garante idempotência quando
+// o Stripe reenviar o mesmo evento.
+model StripeEvent {
+  id          String   @id // id do evento no Stripe (evt_...)
+  type        String
+  processedAt DateTime @default(now()) @map("processed_at")
+
+  @@map("stripe_events")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Negócio
+// ─────────────────────────────────────────────────────────────
+
+model Client {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String
+  email          String?
+  phone          String?
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, name])
+  @@map("clients")
+}
+
+model Service {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String
+  durationMin    Int      @map("duration_min")
+  // Valores monetários sempre em centavos (inteiro) para evitar erro de ponto flutuante.
+  priceCents     Int      @map("price_cents")
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, active])
+  @@map("services")
+}
+
+model Appointment {
+  id             String            @id @default(cuid())
+  organizationId String            @map("organization_id")
+  clientId       String            @map("client_id")
+  serviceId      String            @map("service_id")
+  professionalId String            @map("professional_id")
+  startsAt       DateTime          @map("starts_at") @db.Timestamptz(3)
+  endsAt         DateTime          @map("ends_at") @db.Timestamptz(3)
+  status         AppointmentStatus @default(SCHEDULED)
+  // Preço congelado no momento do agendamento: mudar o preço do serviço
+  // não altera o histórico de receita.
+  priceCents     Int               @map("price_cents")
+  notes          String?
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       Client       @relation(fields: [clientId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  service      Service      @relation(fields: [serviceId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  professional Membership   @relation(fields: [professionalId, organizationId], references: [id, organizationId], onDelete: NoAction)
+
+  // Sobreposição de horários do mesmo profissional é bloqueada por uma
+  // EXCLUDE constraint (btree_gist) criada via SQL na migration.
+  @@index([organizationId, startsAt])
+  @@index([professionalId, startsAt])
+  @@map("appointments")
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  actorId        String?  @map("actor_id")
+  action         String // ex.: "client.created", "appointment.canceled"
+  entity         String
+  entityId       String?  @map("entity_id")
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@map("audit_logs")
+}
