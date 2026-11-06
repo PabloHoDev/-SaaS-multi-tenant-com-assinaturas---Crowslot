@@ -18,7 +18,11 @@ type Tx = Pick<typeof db, "auditLog">;
  * Registra "quem fez o quê". Aceita um client de transação para que o log
  * seja gravado atomicamente junto com a alteração auditada.
  */
-export async function audit(ctx: OrgContext, input: AuditInput, tx: Tx = db) {
+export async function audit(
+  ctx: Pick<OrgContext, "organizationId" | "userId">,
+  input: AuditInput,
+  tx: Tx = db,
+) {
   await tx.auditLog.create({
     data: {
       organizationId: ctx.organizationId,
