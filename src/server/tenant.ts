@@ -15,7 +15,7 @@ import { assertCan, type Permission, type Role } from "@/lib/rbac";
 export type OrgContext = {
   userId: string;
   organizationId: string;
-  organization: { id: string; name: string; slug: string; plan: "FREE" | "PRO" };
+  organization: { id: string; name: string; slug: string; plan: "FREE" | "PRO"; timezone: string };
   membershipId: string;
   role: Role;
 };
@@ -39,7 +39,7 @@ export const getOrgContext = cache(async (slug: string): Promise<OrgContext> => 
     select: {
       id: true,
       role: true,
-      organization: { select: { id: true, name: true, slug: true, plan: true } },
+      organization: { select: { id: true, name: true, slug: true, plan: true, timezone: true } },
     },
   });
 
