@@ -2,16 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { z } from "zod";
-
 import type { ActionState } from "@/lib/action-state";
 import { clientSchema } from "@/lib/validations/client";
+import { idSchema } from "@/lib/validations/common";
 import { runAction } from "@/server/action";
 import { createClient, deleteClient, updateClient } from "@/server/clients";
 import { getOrgContext } from "@/server/tenant";
 
 const FIELDS = ["name", "email", "phone", "notes"] as const;
-const idSchema = z.string().min(1).max(64);
 
 function readForm(formData: FormData) {
   return Object.fromEntries(FIELDS.map((key) => [key, String(formData.get(key) ?? "")])) as Record<
