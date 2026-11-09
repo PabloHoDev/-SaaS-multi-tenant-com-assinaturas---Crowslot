@@ -1,5 +1,6 @@
 import "server-only";
 
+import { io } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 
@@ -22,6 +23,11 @@ export type OrgContext = {
 
 /** Usuário autenticado ou redireciona para o login. Deduplicado por requisição. */
 export const requireUser = cache(async () => {
+  // Marca o início do acesso ao banco. Sem isso, o driver `pg` gera o nonce
+  // da autenticação SCRAM (crypto.getRandomValues) dentro de um prerender e
+  // o Next acusa "blocking-prerender-crypto". Durante uma requisição normal
+  // ou uma Server Action, `io()` resolve na hora.
+  await io();
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   return session.user;
