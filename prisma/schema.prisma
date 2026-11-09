@@ -204,6 +204,18 @@ model StripeEvent {
   @@map("stripe_events")
 }
 
+// Contadores de rate limit em janela fixa (login, convites). A chave guarda
+// só o hash do identificador (e-mail/IP), nunca o valor em texto.
+model RateLimit {
+  key         String
+  windowStart DateTime @map("window_start") @db.Timestamptz(3)
+  count       Int      @default(1)
+
+  @@id([key, windowStart])
+  @@index([windowStart])
+  @@map("rate_limits")
+}
+
 // ─────────────────────────────────────────────────────────────
 // Negócio
 // ─────────────────────────────────────────────────────────────
