@@ -15,6 +15,8 @@ export const metadata: Metadata = { title: "Entrar" };
 const AUTH_ERRORS: Record<string, string> = {
   Verification: "O link de acesso expirou ou já foi usado. Peça um novo.",
   OAuthAccountNotLinked: "Este e-mail já está ligado a outro método de login.",
+  RateLimited: "Muitos pedidos de acesso. Aguarde alguns minutos e tente de novo.",
+  AccessDenied: "Não foi possível confirmar sua conta. Use um e-mail verificado.",
   Default: "Não foi possível entrar. Tente novamente.",
 };
 
