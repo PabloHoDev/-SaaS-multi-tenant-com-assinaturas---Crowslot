@@ -18,6 +18,13 @@ jobs:
     name: Lint, tipos e testes
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Nenhum passo acessa o banco; valores fictícios só satisfazem a validação do env.
+    # Ficam no nível do job porque o `npm ci` já roda `prisma generate` (postinstall),
+    # e o prisma.config.ts exige DATABASE_URL.
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      AUTH_SECRET: ci-secret-with-at-least-32-characters-long # gitleaks:allow (fictício)
+      NEXT_TELEMETRY_DISABLED: 1
     steps:
       # Actions fixadas por SHA de commit (a tag pode ser movida; o SHA, não).
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -44,11 +51,6 @@ jobs:
 
       - name: Build
         run: npm run build
-        env:
-          # O build não acessa o banco; valores fictícios só satisfazem a validação do env.
-          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
-          AUTH_SECRET: ci-secret-with-at-least-32-characters-long
-          NEXT_TELEMETRY_DISABLED: 1
 
   secrets:
     name: Varredura de segredos (Gitleaks)
