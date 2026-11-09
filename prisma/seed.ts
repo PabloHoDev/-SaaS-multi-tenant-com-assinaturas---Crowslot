@@ -97,14 +97,21 @@ function localDate(day: Date, hour: number, minute: number) {
 }
 
 async function main() {
+  // O seed apaga e recria dados: nunca deve rodar contra produção por engano.
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL === "1") {
+    throw new Error("Seed bloqueado em produção.");
+  }
+
   console.info("🌱 Limpando dados de demo anteriores…");
   await db.organization.deleteMany({ where: { slug: DEMO_SLUG } });
 
   const [owner, barber, stylist] = await Promise.all(
     [
-      { email: "demo@crowslot.dev", name: "Pablo (Dono)" },
-      { email: "carlos@crowslot.dev", name: "Carlos Barbeiro" },
-      { email: "juliana@crowslot.dev", name: "Juliana Cabeleireira" },
+      // example.com é reservado (RFC 2606): ninguém pode registrá-lo e receber
+      // os links de login destas contas de demonstração.
+      { email: "demo@example.com", name: "Pablo (Dono)" },
+      { email: "carlos@example.com", name: "Carlos Barbeiro" },
+      { email: "juliana@example.com", name: "Juliana Cabeleireira" },
     ].map((u) =>
       db.user.upsert({
         where: { email: u.email },
@@ -207,7 +214,7 @@ async function main() {
     `✅ ${org.name}: ${org.memberships.length} membros, ${org.services.length} serviços, ` +
       `${clients.length} clientes, ${appointments.length} agendamentos.`,
   );
-  console.info(`   Login de demo: demo@crowslot.dev → /app/${DEMO_SLUG}`);
+  console.info(`   Login de demo: demo@example.com → /app/${DEMO_SLUG}`);
 }
 
 main()
