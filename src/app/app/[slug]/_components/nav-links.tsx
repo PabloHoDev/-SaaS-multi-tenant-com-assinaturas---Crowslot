@@ -1,6 +1,12 @@
 "use client";
 
-import { ContactIcon, LayoutDashboardIcon, UsersIcon, type LucideIcon } from "lucide-react";
+import {
+  ContactIcon,
+  LayoutDashboardIcon,
+  ScissorsIcon,
+  UsersIcon,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -13,6 +19,7 @@ type NavItem = { href: string; label: string; icon: LucideIcon; permission?: Per
 const ITEMS: NavItem[] = [
   { href: "", label: "Visão geral", icon: LayoutDashboardIcon },
   { href: "/clientes", label: "Clientes", icon: ContactIcon, permission: "clients:read" },
+  { href: "/servicos", label: "Serviços", icon: ScissorsIcon },
   { href: "/equipe", label: "Equipe", icon: UsersIcon },
 ];
 
