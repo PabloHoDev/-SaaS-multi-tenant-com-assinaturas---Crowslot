@@ -18,7 +18,8 @@ SaaS **multi-tenant** feito com Next.js (App Router), Prisma, PostgreSQL e Strip
 - [x] Painel com agendamentos do dia, atendimentos e receita do mês
 - [x] Log de auditoria das ações sensíveis
 - [x] Modo escuro
-- [ ] Agenda: CRUD de clientes, serviços e agendamentos
+- [x] Clientes: cadastro, busca por nome/telefone/e-mail, paginação e histórico de atendimentos
+- [ ] Agenda: CRUD de serviços e agendamentos
 - [ ] Dashboard completo com taxa de ocupação
 - [ ] Stripe: checkout, portal de cobrança e webhooks idempotentes
 - [ ] Exportação CSV
