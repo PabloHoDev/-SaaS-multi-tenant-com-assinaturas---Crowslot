@@ -6,6 +6,7 @@ import Resend from "next-auth/providers/resend";
 import { env } from "@/env";
 import { db } from "@/lib/db";
 import { emailLayout, sendEmail } from "@/lib/email";
+import { consumeRateLimit } from "@/server/rate-limit";
 
 const providers: NextAuthConfig["providers"] = [
   Resend({
@@ -40,6 +41,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     verifyRequest: "/login/verificar",
   },
   callbacks: {
+    async signIn({ account, profile, email }) {
+      // Pedido de link mágico (vale para a Server Action e para a rota
+      // /api/auth/signin/resend). Roda antes de gerar o token: se passar do
+      // limite, nenhum e-mail é enviado e o usuário volta ao login com aviso.
+      if (email?.verificationRequest && account?.providerAccountId) {
+        const { allowed } = await consumeRateLimit("loginEmail", account.providerAccountId);
+        return allowed ? true : "/login?error=RateLimited";
+      }
+      // O vínculo automático de contas pelo e-mail só é seguro se o Google
+      // garantir que o e-mail pertence a quem está entrando.
+      if (account?.provider === "google") return profile?.email_verified === true;
+      return true;
+    },
     session({ session, user }) {
       session.user.id = user.id;
       return session;
