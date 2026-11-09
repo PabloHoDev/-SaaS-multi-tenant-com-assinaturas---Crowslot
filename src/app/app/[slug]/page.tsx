@@ -10,13 +10,12 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { APPOINTMENT_STATUS } from "@/lib/appointment-status";
 import { formatCurrency } from "@/lib/format";
 import { getOverview } from "@/server/dashboard";
 import { getOrgContext } from "@/server/tenant";
 
 export const metadata: Metadata = { title: "Visão geral" };
-
-const STATUS_LABEL = { SCHEDULED: "Agendado", CONFIRMED: "Confirmado" } as const;
 
 export default async function OverviewPage({ params }: PageProps<"/app/[slug]">) {
   const { slug } = await params;
@@ -79,8 +78,8 @@ export default async function OverviewPage({ params }: PageProps<"/app/[slug]">)
                     <span className="text-muted-foreground">{a.service.name}</span>
                   </span>
                   <span className="text-muted-foreground">{a.professional.user.name}</span>
-                  <Badge variant={a.status === "CONFIRMED" ? "default" : "outline"}>
-                    {STATUS_LABEL[a.status as keyof typeof STATUS_LABEL]}
+                  <Badge variant={APPOINTMENT_STATUS[a.status].variant}>
+                    {APPOINTMENT_STATUS[a.status].label}
                   </Badge>
                 </li>
               ))}
