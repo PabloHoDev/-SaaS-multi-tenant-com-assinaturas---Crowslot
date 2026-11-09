@@ -1,9 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
-
 import type { ActionState } from "@/lib/action-state";
+import { idSchema } from "@/lib/validations/common";
 import { inviteMemberSchema } from "@/lib/validations/organization";
 import { runAction } from "@/server/action";
 import { createInvitation, removeMember, revokeInvitation } from "@/server/invitations";
@@ -24,8 +23,6 @@ export async function inviteMemberAction(slug: string, _prev: ActionState, formD
     return { status: "success", message: `Convite enviado para ${input.email}.` };
   });
 }
-
-const idSchema = z.string().min(1).max(64);
 
 export async function revokeInvitationAction(slug: string, invitationId: string) {
   return runAction(async () => {
