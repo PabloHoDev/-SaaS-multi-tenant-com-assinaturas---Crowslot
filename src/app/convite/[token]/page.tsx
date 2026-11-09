@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { io } from "next/cache";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -28,6 +29,7 @@ export default function InvitationPage({ params }: PageProps<"/convite/[token]">
 
 async function InvitationContent({ params }: { params: PageProps<"/convite/[token]">["params"] }) {
   const { token } = await params;
+  await io(); // acesso ao banco a seguir — ver `requireUser` (server/tenant.ts)
   const [invitation, session] = await Promise.all([getInvitationByToken(token), auth()]);
 
   if (!invitation) {
