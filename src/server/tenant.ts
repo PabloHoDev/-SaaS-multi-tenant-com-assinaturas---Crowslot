@@ -7,6 +7,7 @@ import { cache } from "react";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { assertCan, type Permission, type Role } from "@/lib/rbac";
+import { slugSchema } from "@/lib/validations/common";
 
 /**
  * Contexto de tenant resolvido para a requisição atual.
@@ -39,6 +40,8 @@ export const requireUser = cache(async () => {
  */
 export const getOrgContext = cache(async (slug: string): Promise<OrgContext> => {
   const user = await requireUser();
+  // O slug vem da URL ou de um `.bind()` no navegador: formato inválido = 404.
+  if (!slugSchema.safeParse(slug).success) notFound();
 
   const membership = await db.membership.findFirst({
     where: { userId: user.id, organization: { slug } },
