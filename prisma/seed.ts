@@ -139,7 +139,8 @@ async function main() {
         name,
         email:
           random() > 0.3 ? `${slugifyEmail(name)}${Math.floor(random() * 100)}@email.com` : null,
-        phone: `(85) 9${Math.floor(10000000 + random() * 89999999)}`,
+        // Só dígitos (DDD + número), como a aplicação grava; a máscara é aplicada na tela.
+        phone: `859${Math.floor(10000000 + random() * 89999999)}`,
       };
     }),
   });
