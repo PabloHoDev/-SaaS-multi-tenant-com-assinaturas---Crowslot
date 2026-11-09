@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { io } from "next/cache";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
@@ -41,6 +42,7 @@ async function LoginContent({
   const params = await searchParams;
   const callbackUrl = safeRedirect(params.callbackUrl);
 
+  await io(); // auth() consulta a sessão no banco — ver `requireUser` (server/tenant.ts)
   const session = await auth();
   if (session?.user) redirect(callbackUrl);
 
