@@ -1,5 +1,7 @@
 import "server-only";
 
+import { io } from "next/cache";
+
 import { env } from "@/env";
 import { DomainError } from "@/lib/action-state";
 import { db } from "@/lib/db";
@@ -138,6 +140,7 @@ export async function removeMember(ctx: OrgContext, membershipId: string) {
 
 /** Dados públicos do convite, para a tela de aceite. */
 export async function getInvitationByToken(token: string) {
+  await io(); // ver comentário em `requireUser` (tenant.ts)
   const invitation = await db.invitation.findUnique({
     where: { tokenHash: hashToken(token) },
     select: {
