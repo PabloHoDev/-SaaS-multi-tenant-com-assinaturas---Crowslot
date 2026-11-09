@@ -9,9 +9,11 @@ import { emailLayout, escapeHtml, sendEmail } from "@/lib/email";
 import { assertWithinLimit } from "@/lib/plans";
 import { assertCan, assignableRoles, canManageMember, ForbiddenError } from "@/lib/rbac";
 import { generateToken, hashToken } from "@/lib/tokens";
+import { inviteTokenSchema } from "@/lib/validations/common";
 import type { InviteMemberInput } from "@/lib/validations/organization";
 
 import { audit } from "./audit";
+import { assertRateLimit } from "./rate-limit";
 import type { OrgContext } from "./tenant";
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -65,6 +67,11 @@ export async function createInvitation(ctx: OrgContext, input: InviteMemberInput
     }),
   ]);
   assertWithinLimit(ctx.organization.plan, "members", memberCount + pendingCount);
+
+  // O reenvio substitui o convite anterior, então o limite do plano não
+  // segura disparos repetidos: o rate limit evita spam pelo nosso domínio.
+  await assertRateLimit("inviteEmail", `${ctx.organizationId}:${input.email}`);
+  await assertRateLimit("inviteOrg", ctx.organizationId);
 
   const token = generateToken();
 
@@ -140,6 +147,7 @@ export async function removeMember(ctx: OrgContext, membershipId: string) {
 
 /** Dados públicos do convite, para a tela de aceite. */
 export async function getInvitationByToken(token: string) {
+  if (!inviteTokenSchema.safeParse(token).success) return null;
   await io(); // ver comentário em `requireUser` (tenant.ts)
   const invitation = await db.invitation.findUnique({
     where: { tokenHash: hashToken(token) },
@@ -161,6 +169,9 @@ export async function acceptInvitation(
   token: string,
   user: { id: string; email: string },
 ): Promise<{ slug: string }> {
+  if (!inviteTokenSchema.safeParse(token).success) {
+    throw new DomainError("Este convite é inválido ou expirou.");
+  }
   const invitation = await db.invitation.findUnique({
     where: { tokenHash: hashToken(token) },
     include: { organization: { select: { id: true, slug: true } } },
