@@ -44,12 +44,20 @@ export function isWithinLimit(plan: PlanId, resource: LimitedResource, currentCo
   return currentCount < getLimit(plan, resource);
 }
 
+const RESOURCE_LABEL: Record<LimitedResource, string> = {
+  clients: "clientes",
+  members: "pessoas na equipe",
+  services: "serviços",
+};
+
 export class PlanLimitError extends Error {
   constructor(
     public readonly resource: LimitedResource,
     public readonly limit: number,
   ) {
-    super(`Limite do plano atingido para ${resource} (${limit}). Faça upgrade para o Pro.`);
+    super(
+      `Seu plano permite até ${limit} ${RESOURCE_LABEL[resource]}. Faça upgrade para o Pro para continuar.`,
+    );
     this.name = "PlanLimitError";
   }
 }
