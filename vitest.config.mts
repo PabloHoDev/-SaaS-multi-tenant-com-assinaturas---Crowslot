@@ -8,7 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
-      // `server-only` lanÃ§a erro fora do runtime do React Server; nos testes Ã© inofensivo.
+      // `server-only` lança erro fora do runtime do React Server; nos testes é inofensivo.
       "server-only": path.resolve(import.meta.dirname, "src/test/server-only-stub.ts"),
     },
   },
