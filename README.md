@@ -93,6 +93,27 @@ relevantes:
 - O aceite é atômico (`UPDATE ... WHERE accepted_at IS NULL`): dois cliques simultâneos não criam dois vínculos.
 - Convites pendentes contam no limite do plano, para não dar para burlar o limite convidando várias pessoas de uma vez.
 
+### Segurança
+
+O projeto passou por uma auditoria (input, acesso a dados, permissões, segredos e rotas).
+O que ela deixou no código:
+
+- **Rate limit no próprio Postgres** ([`src/server/rate-limit.ts`](src/server/rate-limit.ts)),
+  sem Redis: janela fixa com um `UPSERT` atômico. Limita links de login por e-mail e por IP,
+  inclusive pela rota direta do Auth.js, e o reenvio de convites. A tabela guarda só o
+  **hash** do e-mail/IP.
+- **Menor privilégio no banco**: o app conecta como `crowslot_app`, que só faz
+  SELECT/INSERT/UPDATE/DELETE ([`prisma/sql/app-role.sql`](prisma/sql/app-role.sql)).
+  DROP, ALTER e CREATE ficam com o dono, usado só pelas migrations.
+- **Cabeçalhos de segurança** ([`next.config.ts`](next.config.ts)): `frame-ancestors 'none'`
+  contra clickjacking, `nosniff`, `Referrer-Policy` e HSTS.
+- **Falha fechada**: em produção, sem chave de e-mail, o envio dá erro em vez de imprimir o
+  link de login no log. O env de produção é validado no boot.
+- **Formatos validados** antes de tocar no banco: slug, IDs e token de convite que chegam do
+  navegador passam por schema ([`src/lib/validations/common.ts`](src/lib/validations/common.ts)).
+- Login com Google só aceita **e-mail verificado**; cada conta é dona de no máximo 3 espaços.
+- **CI** com actions fixadas por SHA, permissões mínimas e **Gitleaks** varrendo o histórico.
+
 ### Outros detalhes
 
 - **Dinheiro em centavos** (inteiro), nunca float. O preço é **congelado no agendamento**: mudar o preço do serviço não reescreve a receita passada.
@@ -136,8 +157,9 @@ npm run db:seed               # opcional: dados de demonstração
 npm run dev
 ```
 
-Sem `RESEND_API_KEY`, o link de login aparece **no terminal**. Assim dá para rodar o
-projeto sem nenhuma conta externa além do banco.
+Sem `RESEND_API_KEY`, o link de login aparece **no terminal** (só em desenvolvimento). Assim
+dá para rodar o projeto sem nenhuma conta externa além do banco. Com o seed, entre com
+`demo@example.com`.
 
 ### Scripts
 
