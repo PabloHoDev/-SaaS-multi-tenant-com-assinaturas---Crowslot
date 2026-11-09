@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { APPOINTMENT_STATUS } from "@/lib/appointment-status";
 import { formatCurrency } from "@/lib/format";
 import { can } from "@/lib/rbac";
+import { idSchema } from "@/lib/validations/common";
 import { getClient } from "@/server/clients";
 import { getOrgContext } from "@/server/tenant";
 
@@ -21,7 +22,7 @@ export const metadata: Metadata = { title: "Cliente" };
 export default async function ClientPage({ params }: PageProps<"/app/[slug]/clientes/[clientId]">) {
   const { slug, clientId } = await params;
   const ctx = await getOrgContext(slug);
-  const data = clientId.length <= 64 ? await getClient(ctx, clientId) : null;
+  const data = idSchema.safeParse(clientId).success ? await getClient(ctx, clientId) : null;
   if (!data) notFound();
 
   const { client, history, stats } = data;
